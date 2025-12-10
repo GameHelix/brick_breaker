@@ -104,7 +104,7 @@ export default function BrickBreaker() {
           type = BrickType.STRONG;
           maxHits = 2;
           points = 20;
-        } else if (rand < 0.4) {
+        } else if (rand < 0.6) {
           type = BrickType.POWERUP;
         }
 
@@ -413,7 +413,7 @@ export default function BrickBreaker() {
             brick.hits++;
             if (brick.hits >= brick.maxHits) {
               brick.visible = false;
-              if (brick.type === BrickType.POWERUP && Math.random() < 0.5) {
+              if (brick.type === BrickType.POWERUP) {
                 createPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2);
               }
             }
@@ -513,7 +513,7 @@ export default function BrickBreaker() {
           brick.hits++;
           if (brick.hits >= brick.maxHits) {
             brick.visible = false;
-            if (brick.type === BrickType.POWERUP && Math.random() < 0.5) {
+            if (brick.type === BrickType.POWERUP) {
               createPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2);
             }
           }
@@ -647,6 +647,28 @@ export default function BrickBreaker() {
       paddleRef.current.width,
       paddleRef.current.height
     );
+
+    // Draw gun barrels when laser is active
+    if (laserActiveRef.current) {
+      const gunPositions = [0.2, 0.4, 0.6, 0.8];
+      gunPositions.forEach(pos => {
+        const gunX = paddleRef.current.x + paddleRef.current.width * pos;
+        const gunY = paddleRef.current.y - 3;
+
+        // Gun barrel
+        ctx.fillStyle = '#00FF00';
+        ctx.shadowColor = '#00FF00';
+        ctx.shadowBlur = 10;
+        ctx.fillRect(gunX - 2.5, gunY, 5, 6);
+
+        // Gun glow
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(gunX - 1.5, gunY, 3, 4);
+        ctx.globalAlpha = 1;
+      });
+    }
+
     ctx.restore();
 
     // Draw balls
