@@ -60,7 +60,8 @@ export enum PowerUpType {
   FAST_BALL = 'fast-ball',
   MULTI_BALL = 'multi-ball',
   EXTRA_LIFE = 'extra-life',
-  FIRE_BALL = 'fire-ball'
+  FIRE_BALL = 'fire-ball',
+  LASER = 'laser'
 }
 
 export interface PowerUp {
@@ -75,6 +76,15 @@ export interface PowerUp {
   active: boolean;
   duration?: number;
   startTime?: number;
+}
+
+export interface Bullet {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  speed: number;
+  color: string;
 }
 
 export interface Particle {

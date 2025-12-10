@@ -9,7 +9,8 @@ import {
   Particle,
   GameState,
   BrickType,
-  PowerUpType
+  PowerUpType,
+  Bullet
 } from '@/lib/types';
 
 const CANVAS_WIDTH = 800;
@@ -53,9 +54,12 @@ export default function BrickBreaker() {
   const powerUpsRef = useRef<PowerUp[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const activePowerUpsRef = useRef<PowerUp[]>([]);
+  const bulletsRef = useRef<Bullet[]>([]);
   const keysRef = useRef<{ [key: string]: boolean }>({});
   const mouseXRef = useRef<number>(CANVAS_WIDTH / 2);
   const fireBallActiveRef = useRef(false);
+  const laserActiveRef = useRef(false);
+  const lastShootTimeRef = useRef(0);
 
   // Create initial ball
   const createBall = useCallback((x?: number, y?: number): Ball => {
@@ -153,7 +157,8 @@ export default function BrickBreaker() {
       [PowerUpType.FAST_BALL]: { color: '#FFA07A', icon: '⚡' },
       [PowerUpType.MULTI_BALL]: { color: '#F7DC6F', icon: '⚽' },
       [PowerUpType.EXTRA_LIFE]: { color: '#98D8C8', icon: '❤️' },
-      [PowerUpType.FIRE_BALL]: { color: '#FF4500', icon: '🔥' }
+      [PowerUpType.FIRE_BALL]: { color: '#FF4500', icon: '🔥' },
+      [PowerUpType.LASER]: { color: '#00FF00', icon: '🔫' }
     };
 
     const config = powerUpConfig[type];
@@ -223,6 +228,11 @@ export default function BrickBreaker() {
         });
         powerUp.duration = 12000;
         break;
+      case PowerUpType.LASER:
+        laserActiveRef.current = true;
+        paddle.color = '#00FF00';
+        powerUp.duration = 15000;
+        break;
     }
 
     if (powerUp.duration) {
@@ -239,8 +249,12 @@ export default function BrickBreaker() {
     powerUpsRef.current = [];
     particlesRef.current = [];
     activePowerUpsRef.current = [];
+    bulletsRef.current = [];
     paddleRef.current.width = PADDLE_WIDTH;
+    paddleRef.current.color = '#00ffff';
     fireBallActiveRef.current = false;
+    laserActiveRef.current = false;
+    lastShootTimeRef.current = 0;
   }, [createBall, generateBricks, gameState.level]);
 
   // Reset ball
@@ -261,6 +275,36 @@ export default function BrickBreaker() {
     );
   }, []);
 
+  // Shoot bullet
+  const shootBullet = useCallback(() => {
+    const now = Date.now();
+    if (laserActiveRef.current && now - lastShootTimeRef.current > 80) { // Very fast fire rate (80ms = 12.5 shots/second)
+      const paddle = paddleRef.current;
+      // Shoot two bullets from each side of paddle for more intensity
+      bulletsRef.current.push({
+        x: paddle.x + paddle.width / 3,
+        y: paddle.y,
+        width: 4,
+        height: 15,
+        speed: 12, // Very fast bullets
+        color: '#00FF00'
+      });
+      bulletsRef.current.push({
+        x: paddle.x + (paddle.width * 2) / 3,
+        y: paddle.y,
+        width: 4,
+        height: 15,
+        speed: 12,
+        color: '#00FF00'
+      });
+      lastShootTimeRef.current = now;
+
+      // Add muzzle flash particles
+      createParticles(paddle.x + paddle.width / 3, paddle.y, '#00FF00', 5);
+      createParticles(paddle.x + (paddle.width * 2) / 3, paddle.y, '#00FF00', 5);
+    }
+  }, [createParticles]);
+
   // Update game
   const update = useCallback(() => {
     if (gameState.paused || gameState.gameOver) return;
@@ -270,6 +314,7 @@ export default function BrickBreaker() {
     const bricks = bricksRef.current;
     const powerUps = powerUpsRef.current;
     const particles = particlesRef.current;
+    const bullets = bulletsRef.current;
 
     // Update paddle position
     if (keysRef.current['ArrowLeft'] || keysRef.current['a']) {
@@ -282,6 +327,11 @@ export default function BrickBreaker() {
     // Mouse control
     if (mouseXRef.current !== null) {
       paddle.x = Math.max(0, Math.min(CANVAS_WIDTH - paddle.width, mouseXRef.current - paddle.width / 2));
+    }
+
+    // Auto-shoot when laser is active
+    if (laserActiveRef.current) {
+      shootBullet();
     }
 
     // Update balls
@@ -410,8 +460,59 @@ export default function BrickBreaker() {
                 ball.color = '#ffffff';
               });
               break;
+            case PowerUpType.LASER:
+              laserActiveRef.current = false;
+              paddle.color = '#00ffff';
+              break;
           }
           activePowerUpsRef.current.splice(i, 1);
+        }
+      }
+    }
+
+    // Update bullets
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const bullet = bullets[i];
+      bullet.y -= bullet.speed;
+
+      // Remove bullets that go off screen
+      if (bullet.y + bullet.height < 0) {
+        bullets.splice(i, 1);
+        continue;
+      }
+
+      // Bullet-brick collision
+      for (let j = bricks.length - 1; j >= 0; j--) {
+        const brick = bricks[j];
+        if (
+          brick.visible &&
+          bullet.x + bullet.width > brick.x &&
+          bullet.x < brick.x + brick.width &&
+          bullet.y < brick.y + brick.height &&
+          bullet.y + bullet.height > brick.y
+        ) {
+          // Destroy brick
+          brick.hits++;
+          if (brick.hits >= brick.maxHits) {
+            brick.visible = false;
+            if (brick.type === BrickType.POWERUP && Math.random() < 0.5) {
+              createPowerUp(brick.x + brick.width / 2, brick.y + brick.height / 2);
+            }
+          }
+
+          // Remove bullet
+          bullets.splice(i, 1);
+
+          // Create explosion particles
+          createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.color, 20);
+
+          // Add score
+          setGameState(prev => ({
+            ...prev,
+            score: prev.score + brick.points
+          }));
+
+          break;
         }
       }
     }
@@ -453,7 +554,7 @@ export default function BrickBreaker() {
       }
       return prev;
     });
-  }, [gameState.paused, gameState.gameOver, detectCollision, createParticles, createPowerUp, applyPowerUp, resetBall, initGame]);
+  }, [gameState.paused, gameState.gameOver, detectCollision, createParticles, createPowerUp, applyPowerUp, resetBall, initGame, shootBullet]);
 
   // Draw game
   const draw = useCallback(() => {
@@ -560,6 +661,29 @@ export default function BrickBreaker() {
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+    });
+
+    // Draw bullets
+    bulletsRef.current.forEach(bullet => {
+      ctx.save();
+      ctx.shadowColor = bullet.color;
+      ctx.shadowBlur = 15;
+
+      // Bullet gradient
+      const bulletGradient = ctx.createLinearGradient(bullet.x, bullet.y, bullet.x, bullet.y + bullet.height);
+      bulletGradient.addColorStop(0, '#ffffff');
+      bulletGradient.addColorStop(0.3, bullet.color);
+      bulletGradient.addColorStop(1, adjustBrightness(bullet.color, -50));
+      ctx.fillStyle = bulletGradient;
+      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+
+      // Bullet glow
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = bullet.color;
+      ctx.fillRect(bullet.x - 1, bullet.y, bullet.width + 2, bullet.height);
+      ctx.globalAlpha = 1;
+
       ctx.restore();
     });
 
@@ -712,7 +836,7 @@ export default function BrickBreaker() {
         <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-600 mb-2">
           BRICK BREAKER
         </h1>
-        <p className="text-gray-400 text-sm">Use Arrow Keys or Mouse to move • Space to Pause</p>
+        <p className="text-gray-400 text-sm">Use Arrow Keys or Mouse to move • Space to Pause • Get Laser to auto-shoot!</p>
       </div>
 
       <div className="relative">
@@ -754,6 +878,10 @@ export default function BrickBreaker() {
           <div className="flex items-center gap-2">
             <span className="text-2xl">🔥</span>
             <span>Fire Ball (destroy all)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🔫</span>
+            <span>Laser (auto-shoot bullets)</span>
           </div>
         </div>
       </div>
