@@ -231,7 +231,7 @@ export default function BrickBreaker() {
       case PowerUpType.LASER:
         laserActiveRef.current = true;
         paddle.color = '#00FF00';
-        powerUp.duration = 15000;
+        powerUp.duration = 20000; // Longer duration for more fun
         break;
     }
 
@@ -278,30 +278,48 @@ export default function BrickBreaker() {
   // Shoot bullet
   const shootBullet = useCallback(() => {
     const now = Date.now();
-    if (laserActiveRef.current && now - lastShootTimeRef.current > 80) { // Very fast fire rate (80ms = 12.5 shots/second)
+    if (laserActiveRef.current && now - lastShootTimeRef.current > 30) { // ULTRA fast fire rate (30ms = 33.3 shots/second)
       const paddle = paddleRef.current;
-      // Shoot two bullets from each side of paddle for more intensity
+      // Shoot FOUR bullets for maximum intensity
       bulletsRef.current.push({
-        x: paddle.x + paddle.width / 3,
+        x: paddle.x + paddle.width * 0.2,
         y: paddle.y,
-        width: 4,
-        height: 15,
-        speed: 12, // Very fast bullets
+        width: 5,
+        height: 18,
+        speed: 15, // Even faster bullets
         color: '#00FF00'
       });
       bulletsRef.current.push({
-        x: paddle.x + (paddle.width * 2) / 3,
+        x: paddle.x + paddle.width * 0.4,
         y: paddle.y,
-        width: 4,
-        height: 15,
-        speed: 12,
+        width: 5,
+        height: 18,
+        speed: 15,
+        color: '#00FF00'
+      });
+      bulletsRef.current.push({
+        x: paddle.x + paddle.width * 0.6,
+        y: paddle.y,
+        width: 5,
+        height: 18,
+        speed: 15,
+        color: '#00FF00'
+      });
+      bulletsRef.current.push({
+        x: paddle.x + paddle.width * 0.8,
+        y: paddle.y,
+        width: 5,
+        height: 18,
+        speed: 15,
         color: '#00FF00'
       });
       lastShootTimeRef.current = now;
 
-      // Add muzzle flash particles
-      createParticles(paddle.x + paddle.width / 3, paddle.y, '#00FF00', 5);
-      createParticles(paddle.x + (paddle.width * 2) / 3, paddle.y, '#00FF00', 5);
+      // Add intense muzzle flash particles
+      createParticles(paddle.x + paddle.width * 0.2, paddle.y, '#00FF00', 8);
+      createParticles(paddle.x + paddle.width * 0.4, paddle.y, '#00FF00', 8);
+      createParticles(paddle.x + paddle.width * 0.6, paddle.y, '#00FF00', 8);
+      createParticles(paddle.x + paddle.width * 0.8, paddle.y, '#00FF00', 8);
     }
   }, [createParticles]);
 
