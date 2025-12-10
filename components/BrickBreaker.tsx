@@ -491,22 +491,17 @@ export default function BrickBreaker() {
     // Update bullets
     for (let i = bullets.length - 1; i >= 0; i--) {
       const bullet = bullets[i];
-      bullet.y -= bullet.speed;
 
-      // Remove bullets that go off screen
-      if (bullet.y + bullet.height < 0) {
-        bullets.splice(i, 1);
-        continue;
-      }
+      let bulletHit = false;
 
-      // Bullet-brick collision
+      // Bullet-brick collision (check BEFORE moving bullet to prevent passing through)
       for (let j = bricks.length - 1; j >= 0; j--) {
         const brick = bricks[j];
         if (
           brick.visible &&
           bullet.x + bullet.width > brick.x &&
           bullet.x < brick.x + brick.width &&
-          bullet.y < brick.y + brick.height &&
+          bullet.y - bullet.speed < brick.y + brick.height &&
           bullet.y + bullet.height > brick.y
         ) {
           // Destroy brick
@@ -518,9 +513,6 @@ export default function BrickBreaker() {
             }
           }
 
-          // Remove bullet
-          bullets.splice(i, 1);
-
           // Create explosion particles
           createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.color, 20);
 
@@ -530,8 +522,23 @@ export default function BrickBreaker() {
             score: prev.score + brick.points
           }));
 
+          bulletHit = true;
           break;
         }
+      }
+
+      // Remove bullet if it hit something or went off screen
+      if (bulletHit) {
+        bullets.splice(i, 1);
+        continue;
+      }
+
+      // Move bullet
+      bullet.y -= bullet.speed;
+
+      // Remove bullets that go off screen
+      if (bullet.y + bullet.height < 0) {
+        bullets.splice(i, 1);
       }
     }
 
